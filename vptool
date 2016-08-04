@@ -147,6 +147,13 @@ class App:
     def shutdown(self):
         self.backend.shutdown(self.args.name)
 
+    def ssh(self):
+        hostname = self.backend.get_hostname(self.args.name)
+        if not hostname:
+            show('No hostname detected')
+            sys.exit(1)
+        subprocess.call(['ssh', hostname])
+
     def start(self):
         wants_console = getattr(self.args, 'wants_open_console', False)
         self.backend.start(self.args.name,
@@ -192,6 +199,8 @@ class App:
             self.stop()
         elif self.args.action == 'shutdown':
             self.shutdown()
+        elif self.args.action == 'ssh':
+            self.ssh()
         elif self.args.action == 'start':
             self.start()
         elif self.args.action == 'templates':
@@ -248,6 +257,10 @@ def parse_args():
 
     # "shutdown" command
     parser_b = subparsers.add_parser('shutdown', help='shutdown vm')
+    parser_b.add_argument('name', help='vm name')
+
+    # "ssh" command
+    parser_b = subparsers.add_parser('ssh', help='open ssh connection')
     parser_b.add_argument('name', help='vm name')
 
     # "start" command

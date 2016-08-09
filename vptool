@@ -107,6 +107,8 @@ class App:
     def create(self):
         template = self.args.template
         names = self.args.name
+        if self.args.ssh and len(names) != 1:
+            raise OperationError("--ssh can be used only with single VM")
 
         for name in names:
             if not name.startswith(locals.USER):
@@ -121,9 +123,13 @@ class App:
 
         for name in names:
             self.backend.create_vm(name, template=template)
-            if self.args.start:
+            if self.args.start or self.args.ssh:
                 self.backend.start(name, wait=False)
-        return
+        if self.args.ssh:
+            self.args.wait = True
+            self.args.name = names[0]
+            self.ssh()
+
 
     def console(self):
         virtual_viewer_params = self.backend.console(self.args.name)
@@ -149,6 +155,11 @@ class App:
 
     def ssh(self):
         hostname = self.backend.get_hostname(self.args.name)
+        while self.args.wait and not hostname:
+            if self.verbose:
+                show('Hostname is not available, retrying ...')
+            time.sleep(10)
+            hostname = self.backend.get_hostname(self.args.name)
         if not hostname:
             show('No hostname detected')
             sys.exit(1)
@@ -239,6 +250,11 @@ def parse_args():
     parser_b.add_argument('-s', '--start', dest='start',
                           action='store_true', help='start VM',
                           default=False)
+    parser_b.add_argument('--ssh', dest='ssh',
+                          action='store_true',
+                          help='start VM & open SSH connection',
+                          default=False)
+
     # "console" command
     parser_b = subparsers.add_parser('console', help='connect to vm console')
     parser_b.add_argument('name', help='vm name')
@@ -262,6 +278,9 @@ def parse_args():
     # "ssh" command
     parser_b = subparsers.add_parser('ssh', help='open ssh connection')
     parser_b.add_argument('name', help='vm name')
+    parser_b.add_argument('-w', '--wait', dest='wait', action='store_true',
+                          help='wait until hostname is available',
+                          default=False)
 
     # "start" command
     parser_b = subparsers.add_parser('start', help='start vm')
